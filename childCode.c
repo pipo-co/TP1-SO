@@ -12,26 +12,31 @@
 #include <sys/wait.h>
 #include <sys/select.h>
 #include <limits.h>
+#include <fcntl.h> 
 
 #define INPUT_MAX_SIZE 1000
 #define COMMAND_MAX_SIZE 1000
 #define PIPE_WRITE 1
 #define PIPE_READ 0
 
-int main()
+int main(int argc, char const *argv[])
 {
+
 
     //Por stdin debe venir los path a los archivos minisat que le da master
     //Por stdout devuelve la info que consiguio de minisat parseada
 
-    setvbuf(stdout, NULL, _IONBF, 0);
-
+    //setvbuf(stdout, NULL, _IONBF, 0);d
+    int fd;
     char input[INPUT_MAX_SIZE];
     char command[COMMAND_MAX_SIZE];
     size_t commandLen = 0;
-    
-    if((read(STDIN_FILENO, input, INPUT_MAX_SIZE)) == -1) //Puede aux ser 0?
+    printf("hola estoy aca %s",argv[1]);
+    fd = open(argv[1], O_RDONLY);
+    if((read(fd, input, INPUT_MAX_SIZE)) == -1)
         perror("FALLO EL READ");
+        else
+             close(fd);
     
     sprintf(command, "minisat %s | grep -o -e \"Number of .*[0-9]\\+\" -e \"CPU time.*\" -e \".*SATISFIABLE\"", input);
 
@@ -42,7 +47,7 @@ int main()
 
     printf("File name:  %s\n%sID of slave who processed it:  %d", input, command, getpid());
 
-    wait(NULL); //Validar el wait
+    //wait(NULL); //Validar el wait
 
     return 0;
 }
