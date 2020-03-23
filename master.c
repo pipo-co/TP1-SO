@@ -54,7 +54,7 @@ int main(int argc, char const *argv[])
             close(fdPipeOutput[PIPE_READ]);
 
             dup2(fdPipeInput[PIPE_READ], STDIN_FILENO);
-            dup2(fdPipeOutput[PIPE_WRITE], STDOUT_FILENO);
+            //dup2(fdPipeOutput[PIPE_WRITE], STDOUT_FILENO);
 
             close(fdPipeInput[PIPE_READ]);
             close(fdPipeOutput[PIPE_WRITE]);
