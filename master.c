@@ -10,43 +10,60 @@
 #include <sys/wait.h>
 #include <sys/select.h>
 
-#define NUM_CHILD 5
+#define MAX_NUM_CHILD 5
 #define PIPE_WRITE 1
 #define PIPE_READ 0
 #define CHILD_PATH "childCode.out"
 #define BUFFER_SIZE 10000
+#define MAX_INIT_ARGS 20
 
-int main(int argc, char const *argv[])
-{
+typedef struct childStruct{
+    int fdInput;
+    int fdOutput;
+    size_t tasksPending; 
+}childStruct;
+
+int main(int argc, char const *argv[]){
     int forkId;
-    int fdChildInput[NUM_CHILD];
-    int fdChildOutput[NUM_CHILD];
+    childStruct childArray[MAX_NUM_CHILD];
     int fdPipeInput[2];
     int fdPipeOutput[2];
     size_t childCount;
-    //int childPID[NUM_CHILD];
+    size_t initChildTaskCount; //Menos que MAX_INIT_ARGS
+    size_t taskCounter = 1;
+    char* initArgsArray[MAX_INIT_ARGS + 2];
 
-    for (size_t i = 0; i < argc - 1 && i < NUM_CHILD; i++){
-        childCount = i + 1;
+    childCount = 1;
+    initChildTaskCount = 3;
+
+    if(childCount > MAX_NUM_CHILD)
+        childCount = MAX_NUM_CHILD;
+
+    if(initChildTaskCount > MAX_INIT_ARGS)
+        initChildTaskCount = MAX_INIT_ARGS;
+
+    for (size_t i = 0; i < childCount; i++){
 
         if(pipe(fdPipeInput)){
             perror("PIPE INPUT ERROR:");
             exit(EXIT_FAILURE);
         }
 
-        fdChildInput[i] = fdPipeInput[PIPE_WRITE];
+        childArray[i].fdInput = fdPipeInput[PIPE_WRITE];
 
         if(pipe(fdPipeOutput)){
             perror("PIPE OUTPUT ERROR:");
             exit(EXIT_FAILURE);
         }
 
-        fdChildOutput[i] = fdPipeOutput[PIPE_READ];
+        childArray[i].fdOutput = fdPipeOutput[PIPE_READ];
 
         if((forkId = fork()) == -1){
             perror("FORK ERROR");
             exit(EXIT_FAILURE);
         }
+
+        childArray[i].tasksPending = initChildTaskCount;
 
 
         if(!forkId){ //child
@@ -58,49 +75,64 @@ int main(int argc, char const *argv[])
 
             close(fdPipeInput[PIPE_READ]);
             close(fdPipeOutput[PIPE_WRITE]);
-            
 
-            execl(CHILD_PATH, CHILD_PATH, (char*)NULL);
+            initArgsArray[0] = CHILD_PATH;
+            for(size_t i = 1; i <= initChildTaskCount; i++)
+                initArgsArray[i] = argv[taskCounter++];
+            initArgsArray[initChildTaskCount + 1] = NULL;
+            execv(CHILD_PATH, initArgsArray);
             perror("EXEC OF CHILD FAILED");
         }
 
         close(fdPipeInput[PIPE_READ]);
         close(fdPipeOutput[PIPE_WRITE]);
 
-        if(write(fdChildInput[i], argv[i + 1], strlen(argv[i + 1]) + 1) == -1 )
-            perror("ERROR ON WRITE");
+        // if(write(childArray[i].fdInput, argv[i + 1], strlen(argv[i + 1]) + 1) == -1 )
+        //     perror("ERROR ON WRITE");
     }
     
 
-    fd_set fdSet;
-    char buff[BUFFER_SIZE];
-    size_t aux;
-    for (size_t i = 0; i < childCount;){
-        FD_ZERO(&fdSet);
-        for (size_t i = 0; i < childCount; i++)
-            FD_SET(fdChildOutput[i], &fdSet);
+    // fd_set fdSet;
+    // char buff[BUFFER_SIZE];
+    // size_t aux;
+    // while(taskCounter < argc){
+    //     FD_ZERO(&fdSet);
 
-        select(fdChildOutput[childCount - 1] + 1, &fdSet, NULL, NULL, NULL);
 
-        for (size_t j = 0; j < childCount; j++){
-            if(FD_ISSET(fdChildOutput[j], &fdSet)){
-                if((aux = read(fdChildOutput[j], buff, BUFFER_SIZE)) == -1)
-                    perror("ERROR AL LEER");
-                if(aux){
-                    if(aux > 0 && aux < BUFFER_SIZE)
-                        buff[aux] = 0;
 
-                    printf("Soy el padre %s\n", buff);
-                    i++;
-                }
-            }
-        } 
-    }
+
+
+
+
+
+
+
+    //     FD_ZERO(&fdSet);
+    //     for (size_t i = 0; i < childCount; i++)
+    //         FD_SET(fdChildOutput[i], &fdSet);
+
+    //     select(fdChildOutput[childCount - 1] + 1, &fdSet, NULL, NULL, NULL);
+
+    //     for (size_t j = 0; j < childCount; j++){
+    //         if(FD_ISSET(fdChildOutput[j], &fdSet)){
+    //             if((aux = read(fdChildOutput[j], buff, BUFFER_SIZE)) == -1)
+    //                 perror("ERROR AL LEER");
+    //             if(aux){
+    //                 if(aux > 0 && aux < BUFFER_SIZE)
+    //                     buff[aux] = 0;
+
+    //                 printf("%s", buff);
+    //                 i++;
+    //             }
+    //         }
+    //     } 
+    // }
     
 
     for (size_t i = 0; i < childCount; i++){
         if(wait(NULL) == -1)
             perror("ERROR DE WAIT");
     }
+
     
 }
