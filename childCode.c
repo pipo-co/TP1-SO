@@ -1,53 +1,71 @@
 #define _DEFAULT_SOURCE
 
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <string.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/select.h>
-#include <limits.h>
-#include <fcntl.h> 
+    #include <stdio.h>
+    #include <sys/types.h>
+    #include <sys/stat.h>
+    #include <dirent.h>
+    #include <string.h>
+    #include <stdlib.h>
+    #include <errno.h>
+    #include <unistd.h>
+    #include <sys/types.h>
+    #include <sys/time.h>
+    #include <sys/wait.h>
+    #include <sys/select.h>
+    #include <fcntl.h> 
+    #include <semaphore.h> 
 
 #define INPUT_MAX_SIZE 1000
 #define COMMAND_MAX_SIZE 1000
 #define PIPE_WRITE 1
 #define PIPE_READ 0
+enum args{NAME = 0, FIFO,SEM, FIRST_TASK};
 
-int main(int argc, char const *argv[])
-{
+int processRequest(const char * input, char * buffer, size_t size);
 
+int main(int argc, char const *argv[]){
 
-    //Por stdin debe venir los path a los archivos minisat que le da master
-    //Por stdout devuelve la info que consiguio de minisat parseada
+    setvbuf(stdout, NULL, _IONBF, 0);
 
-    //setvbuf(stdout, NULL, _IONBF, 0);d
     int fd;
     char input[INPUT_MAX_SIZE];
     char command[COMMAND_MAX_SIZE];
-    size_t commandLen = 0;
-    printf("hola estoy aca %s",argv[1]);
-    fd = open(argv[1], O_RDONLY);
-    if((read(fd, input, INPUT_MAX_SIZE)) == -1)
-        perror("FALLO EL READ");
-        else
-             close(fd);
+
+    processRequest(argv[FIRST_TASK],command,COMMAND_MAX_SIZE);
     
-    sprintf(command, "minisat %s | grep -o -e \"Number of .*[0-9]\\+\" -e \"CPU time.*\" -e \".*SATISFIABLE\"", input);
+    sem_t *semAdress;
+    if((semAdress = sem_open(argv[SEM],O_CREAT)) == SEM_FAILED){
+        perror("Error creating semaphore");
+    }
 
-    FILE* fp = popen(command, "r"); //Validar
+    while(1){
+        if( (fd = open(argv[FIFO], O_RDONLY)) == -1 ){
+            perror("Error open hijo");
+            exit(EXIT_FAILURE);
+        }
 
-    commandLen = fread(command, sizeof(char), COMMAND_MAX_SIZE, fp); //Validar que sea EOF o error.
-    command[commandLen] = 0;
+        if((read(fd, input, INPUT_MAX_SIZE)) == -1){
+            perror("FALLO EL READ");
+            exit(EXIT_FAILURE);
+        }
+        sem_post(semAdress);
+        close(fd);
+        
+        processRequest(input,command,COMMAND_MAX_SIZE);
+    }   
+    return 0;
+}
 
-    printf("File name:  %s\n%sID of slave who processed it:  %d", input, command, getpid());
+int processRequest(const char * input, char * buffer, size_t size){
 
-    //wait(NULL); //Validar el wait
+    sprintf(buffer, "minisat %s | grep -o -e \"Number of .*[0-9]\\+\" -e \"CPU time.*\" -e \".*SATISFIABLE\"", input);
+
+    FILE* fp = popen(buffer, "r"); //Validar
+
+    size_t commandLen = fread(buffer, sizeof(char), size, fp); //Validar que sea EOF o error.
+    buffer[commandLen] = 0;
+
+    printf("File name:  %s\n%sID of slave who processed it:  %d", input, buffer, getpid());
 
     return 0;
 }

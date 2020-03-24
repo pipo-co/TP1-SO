@@ -1,6 +1,6 @@
 SOURCES = $(wildcard *.c)
 BINS = $(SOURCES:.c=.out)
-FLAGS = -pedantic -Wall -std=c99
+FLAGS = -pedantic -Wall -std=c99 -lpthread
 
 all: $(BINS)
 	rm -f fifo1

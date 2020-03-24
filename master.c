@@ -1,50 +1,56 @@
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <string.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/select.h>
-#include <fcntl.h> 
+//include
+    #include <stdio.h>
+    #include <sys/types.h>
+    #include <sys/stat.h>
+    #include <dirent.h>
+    #include <string.h>
+    #include <stdlib.h>
+    #include <errno.h>
+    #include <unistd.h>
+    #include <sys/types.h>
+    #include <sys/time.h>
+    #include <sys/wait.h>
+    #include <sys/select.h>
+    #include <fcntl.h> 
+    #include <semaphore.h> 
+//end include
 
-#define NUM_CHILD 5
+#define NUM_CHILD 3
 #define PIPE_WRITE 1
 #define PIPE_READ 0
 #define BUFFER_SIZE 10000
 #define CHILD_PATH "childCode.out"
 #define FIFO_PATH "./fifo1"
+#define SEM_NAME "mainSem"
 
 
-int main(int argc, char const *argv[])
-{
-    int programCounter= argc;
+int checkAndPrintAns(size_t childCount, char * buff, size_t size, int * fdChildOutput);
+int main(int argc, char const *argv[]){
+
+    if( argc <= 1)
+        return 1;
+
+    int programCounter = argc;
     int forkId;
-    int fdChildInput[NUM_CHILD];
     int fdChildOutput[NUM_CHILD];
-    int fdPipeInput[2];
     int writingFd;
-
     int fdPipeOutput[2];
     size_t childCount;
-    //int childPID[NUM_CHILD];  
 
-    if(mkfifo(FIFO_PATH,(mode_t)0666)==-1)
+    char buff[BUFFER_SIZE];
+
+    if(mkfifo(FIFO_PATH,(mode_t)0666) == -1)
         perror("fallo makefifo");
     
+    sem_t * semAdress;
+    
+    if((semAdress = sem_open( SEM_NAME, O_CREAT, (mode_t) 0666, 1)) == SEM_FAILED){
+        perror("Error creating semaphore");
+    }
     
     for (size_t i = 0; i < argc - 1 && i < NUM_CHILD; i++){
+        
         childCount = i + 1;
-
-        /*if(pipe(fdPipeInput)){
-            perror("PIPE INPUT ERROR:");
-            exit(EXIT_FAILURE);
-        }
-
-        fdChildInput[i] = fdPipeInput[PIPE_WRITE];*/
 
         if(pipe(fdPipeOutput)){
             perror("PIPE OUTPUT ERROR:");
@@ -58,66 +64,34 @@ int main(int argc, char const *argv[])
             exit(EXIT_FAILURE);
         }
 
-
         if(!forkId){ //child
-            //close(fdPipeInput[PIPE_WRITE]);
+
             close(fdPipeOutput[PIPE_READ]);
 
-            //dup2(fdPipeInput[PIPE_READ], STDIN_FILENO);
-            //dup2(fdPipeOutput[PIPE_WRITE], STDOUT_FILENO);
+            dup2(fdPipeOutput[PIPE_WRITE], STDOUT_FILENO);
 
-           // close(fdPipeInput[PIPE_READ]);
             close(fdPipeOutput[PIPE_WRITE]);
-            
-
-            execl(CHILD_PATH, CHILD_PATH, FIFO_PATH, (char*)NULL);
+            execl(CHILD_PATH, CHILD_PATH, FIFO_PATH, SEM_NAME ,argv[programCounter - 1],(char*)NULL);
             perror("EXEC OF CHILD FAILED");
+            exit(EXIT_FAILURE);
         }
-
-        close(fdPipeInput[PIPE_READ]);
+        programCounter--;
         close(fdPipeOutput[PIPE_WRITE]);
     }
     
+    for (size_t i = 0; i < argc - 1;){
 
-    fd_set fdSet;
-    char buff[BUFFER_SIZE];
-    size_t aux;
-    for (size_t i = 0; i < childCount;){
-        FD_ZERO(&fdSet);
-        for (size_t i = 0; i < childCount; i++)
-            FD_SET(fdChildOutput[i], &fdSet);
-
-        select(fdChildOutput[childCount - 1] + 1, &fdSet, NULL, NULL, NULL);
-        if((writingFd= open(FIFO_PATH, O_WRONLY | O_NONBLOCK ))== -1){
-            if(ENXIO==writingFd){
-                printf("errno :%d",errno);
-                perror("error al intentar open");
-            }
-        }
-        else
-        {
-            if(programCounter != 0){
-                aux = write(writingFd, argv[programCounter-1], strlen(argv[programCounter-1]));
+       i += checkAndPrintAns(childCount, buff, BUFFER_SIZE, fdChildOutput);
+        
+        if((writingFd = open(FIFO_PATH, O_WRONLY | O_NONBLOCK)) != -1){
+            if(programCounter > 0){
+                if( write(writingFd, argv[programCounter-1], strlen(argv[programCounter-1])) == -1)
+                    perror("Error writing");
                 close(writingFd);
+                sem_wait(semAdress);
                 programCounter--;
             }
         }
-        
-
-
-        for (size_t j = 0; j < childCount; j++){
-            if(FD_ISSET(fdChildOutput[j], &fdSet)){
-                if((aux = read(fdChildOutput[j], buff, BUFFER_SIZE)) == -1)
-                    perror("ERROR AL LEER");
-                if(aux){
-                    if(aux > 0 && aux < BUFFER_SIZE)
-                        buff[aux] = 0;
-
-                    printf("Soy el padre %s\n", buff);
-                    i++;
-                }
-            }
-        } 
     }
     
 
@@ -126,4 +100,36 @@ int main(int argc, char const *argv[])
             perror("ERROR DE WAIT");
     }
     
+}
+
+int checkAndPrintAns(size_t childCount, char * buff, size_t size, int * fdChildOutput){
+    
+    fd_set rfds;
+    int aux, ansRecieved = 0;
+    
+    FD_ZERO(&rfds);
+    for (size_t k = 0; k < childCount; k++){
+        FD_SET(fdChildOutput[k], &rfds);
+        //printf("%d",fdChildOutput[k]);
+    }
+    putchar('\n');
+
+    select(fdChildOutput[childCount - 1] + 1, &rfds, NULL, NULL, NULL);
+
+    for (size_t j = 0; j < childCount; j++){
+        if(FD_ISSET(fdChildOutput[j], &rfds)){
+            if((aux = read(fdChildOutput[j], buff, BUFFER_SIZE)) == -1){
+                perror("ERROR AL LEER");
+                exit(EXIT_FAILURE);
+            }
+            if(aux){
+                if(aux > 0 && aux < BUFFER_SIZE)
+                    buff[aux] = 0;
+
+                printf("\n%s\n", buff);
+                ansRecieved++;
+            }
+        }
+    } 
+    return ansRecieved;
 }
