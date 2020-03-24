@@ -27,14 +27,14 @@ int main(int argc, char const *argv[]){
 
     setvbuf(stdout, NULL, _IONBF, 0);
 
-    int fd;
+    int fd, aux;
     char input[INPUT_MAX_SIZE];
     char command[COMMAND_MAX_SIZE];
 
     processRequest(argv[FIRST_TASK],command,COMMAND_MAX_SIZE);
     
     sem_t *semAdress;
-    if((semAdress = sem_open(argv[SEM],O_CREAT)) == SEM_FAILED){
+    if((semAdress = sem_open(argv[SEM],O_RDWR)) == SEM_FAILED){
         perror("Error creating semaphore");
     }
 
@@ -44,9 +44,13 @@ int main(int argc, char const *argv[]){
             exit(EXIT_FAILURE);
         }
 
-        if((read(fd, input, INPUT_MAX_SIZE)) == -1){
+        if((aux=read(fd, input, INPUT_MAX_SIZE)) == -1){
             perror("FALLO EL READ");
             exit(EXIT_FAILURE);
+        }
+        else if (aux){
+                if(aux > 0 && aux < INPUT_MAX_SIZE)
+                    input[aux] = 0;
         }
         sem_post(semAdress);
         close(fd);

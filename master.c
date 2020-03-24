@@ -43,8 +43,8 @@ int main(int argc, char const *argv[]){
         perror("fallo makefifo");
     
     sem_t * semAdress;
-    
-    if((semAdress = sem_open( SEM_NAME, O_CREAT, (mode_t) 0666, 1)) == SEM_FAILED){
+    sem_unlink(SEM_NAME);
+    if((semAdress = sem_open( SEM_NAME, O_CREAT | O_EXCL, (mode_t) 0666, 1)) == SEM_FAILED){
         perror("Error creating semaphore");
     }
     
