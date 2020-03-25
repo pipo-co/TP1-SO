@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 2
+
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -9,15 +11,18 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/select.h>
+#include <signal.h>
+
 
 #define MAX_NUM_CHILD 5
 #define PIPE_WRITE 1
 #define PIPE_READ 0
 #define CHILD_PATH "childCode.out"
-#define BUFFER_SIZE 10000
+#define OUTPUT_SIZE 10000
 #define MAX_INIT_ARGS 20
 
 typedef struct childStruct{
+    pid_t pid;
     int fdInput;
     int fdOutput;
     size_t tasksPending; 
@@ -29,12 +34,18 @@ int main(int argc, char const *argv[]){
     int fdPipeInput[2];
     int fdPipeOutput[2];
     size_t childCount;
-    size_t initChildTaskCount; //Menos que MAX_INIT_ARGS
+    size_t initChildTaskCount;
+    size_t childTasksPerCycle;
     size_t taskCounter = 1;
     char* initArgsArray[MAX_INIT_ARGS + 2];
+    int totalTasks = argc - 1;
+    int generalTasksPending = 0;
 
-    childCount = 1;
-    initChildTaskCount = 3;
+    setvbuf(stdout, NULL, _IONBF, 0);
+
+    childCount = 1; //Menos que MAX_NUM_CHILD
+    initChildTaskCount = 3; //Menos que MAX_INIT_ARGS
+    childTasksPerCycle = 1; //La consigna dice que tiene que ser 1. La variable existe para la abstraccion.
 
     if(childCount > MAX_NUM_CHILD)
         childCount = MAX_NUM_CHILD;
@@ -63,8 +74,7 @@ int main(int argc, char const *argv[]){
             exit(EXIT_FAILURE);
         }
 
-        childArray[i].tasksPending = initChildTaskCount;
-
+        childArray[i].pid = forkId;
 
         if(!forkId){ //child
             close(fdPipeInput[PIPE_WRITE]);
@@ -84,55 +94,73 @@ int main(int argc, char const *argv[]){
             perror("EXEC OF CHILD FAILED");
         }
 
+        childArray[i].tasksPending = initChildTaskCount;
+        generalTasksPending += initChildTaskCount;
+        taskCounter += initChildTaskCount;
+
         close(fdPipeInput[PIPE_READ]);
         close(fdPipeOutput[PIPE_WRITE]);
-
-        // if(write(childArray[i].fdInput, argv[i + 1], strlen(argv[i + 1]) + 1) == -1 )
-        //     perror("ERROR ON WRITE");
     }
     
 
-    // fd_set fdSet;
-    // char buff[BUFFER_SIZE];
-    // size_t aux;
-    // while(taskCounter < argc){
-    //     FD_ZERO(&fdSet);
+    fd_set fdSet;
+    int readAux;
+    char* auxAnsCounter;
+    char buff[OUTPUT_SIZE];
+    int fdAvailable;
+    while(taskCounter <= totalTasks || generalTasksPending > 0){
+        FD_ZERO(&fdSet); 
 
+        for (size_t i = 0; i < childCount; i++)
+            FD_SET(childArray[i].fdOutput, &fdSet);  
 
+        fdAvailable = select(childArray[childCount - 1].fdOutput + 1, &fdSet, NULL, NULL, NULL); //Validar el select
+        if(fdAvailable == -1)
+            perror("SELECT");
 
+        for (size_t i = 0; fdAvailable > 0 && i < childCount && generalTasksPending > 0; i++){
+            if(FD_ISSET(childArray[i].fdOutput, &fdSet)){
 
+                if((readAux = read(childArray[i].fdOutput, buff, OUTPUT_SIZE)) == -1)
+                    perror("ERROR AL LEER");
 
+                if(readAux){ //A veces lee EOF como available
+                    buff[readAux] = 0;
 
+                    printf("%s", buff); //Imprimir en archivo y en memoria compartida
 
+                    auxAnsCounter = buff;
+                    while((auxAnsCounter = strchr(auxAnsCounter, '\n')) != NULL){ //Hubo tantas respuestas como \n
+                        childArray[i].tasksPending--;
+                        generalTasksPending--;
+                        auxAnsCounter++;
+                    }
 
+                    if(childArray[i].tasksPending <= 0){
+                        //Le mando tareas al escalvo correspondiente
 
-
-    //     FD_ZERO(&fdSet);
-    //     for (size_t i = 0; i < childCount; i++)
-    //         FD_SET(fdChildOutput[i], &fdSet);
-
-    //     select(fdChildOutput[childCount - 1] + 1, &fdSet, NULL, NULL, NULL);
-
-    //     for (size_t j = 0; j < childCount; j++){
-    //         if(FD_ISSET(fdChildOutput[j], &fdSet)){
-    //             if((aux = read(fdChildOutput[j], buff, BUFFER_SIZE)) == -1)
-    //                 perror("ERROR AL LEER");
-    //             if(aux){
-    //                 if(aux > 0 && aux < BUFFER_SIZE)
-    //                     buff[aux] = 0;
-
-    //                 printf("%s", buff);
-    //                 i++;
-    //             }
-    //         }
-    //     } 
-    // }
+                        for (size_t j = 0; j < childTasksPerCycle && taskCounter <= totalTasks; j++){
+                            write(childArray[i].fdInput, argv[taskCounter], strlen(argv[taskCounter]) + 1);
+                            //Escribo un espacio para separar?
+                            taskCounter++;
+                            childArray[i].tasksPending++;
+                            generalTasksPending++;
+                        }
+                    }
+                }
+                fdAvailable--;
+            }
+        } 
+    }
     
 
     for (size_t i = 0; i < childCount; i++){
-        if(wait(NULL) == -1)
-            perror("ERROR DE WAIT");
+        if(kill(childArray[i].pid, SIGKILL) == -1)
+            perror("KILL");
     }
 
-    
+    for (size_t i = 0; i < childCount; i++){
+        if(wait(NULL) == -1)
+            perror("WAIT");
+    }
 }
