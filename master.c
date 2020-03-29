@@ -1,4 +1,5 @@
-#define _POSIX_C_SOURCE 2
+#define _POSIX_C_SOURCE 200112L
+
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -11,13 +12,19 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/select.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 #include <signal.h>
+#include <semaphore.h>
 
 
 #define MAX_NUM_CHILD 5
 #define PIPE_WRITE 1
 #define PIPE_READ 0
 #define CHILD_PATH "childCode.out"
+#define FILE_NAME "answer.txt"
+#define SHM_NAME "/shm"
+#define SEM_NAME "/sem"
 #define OUTPUT_SIZE 10000
 #define MAX_INIT_ARGS 20
 #define INPUT_MAX_SIZE 1000
@@ -31,7 +38,7 @@ typedef struct childStruct{
 
 //Returns total tasks delivered to children on init.
 size_t prepareChildren(childStruct childArray[], char const *argv[], size_t childCount, size_t initChildTaskCount, size_t* taskCounter);
-void outputInfo(char output[]);
+void outputInfo(char output[], FILE * file, size_t * mapCounter, char * map, sem_t *sem);
 
 int main(int argc, char const *argv[]){
 
@@ -43,10 +50,11 @@ int main(int argc, char const *argv[]){
     size_t taskCounter = 1;
     size_t totalTasks = argc - 1;
     size_t generalTasksPending = 0;
+    size_t mapCounter=0;
     
     setvbuf(stdout, NULL, _IONBF, 0);
 
-    childCount = 5; //Menos que MAX_NUM_CHILD
+    childCount = 10; //Menos que MAX_NUM_CHILD
     initChildTaskCount = 3; //Menos que MAX_INIT_ARGS
     childTasksPerCycle = 5; //La consigna dice que tiene que ser 1. La variable existe para la abstraccion.
 
@@ -56,12 +64,44 @@ int main(int argc, char const *argv[]){
     if(initChildTaskCount > MAX_INIT_ARGS)
         initChildTaskCount = MAX_INIT_ARGS;
 
-    if(childCount*initChildTaskCount > totalTasks)
-        initChildTaskCount = 0; //childCount*initChildTaskCount < totalTasks!!!
+    if(childCount*initChildTaskCount >= totalTasks)
+        initChildTaskCount = 1; //childCount*initChildTaskCount < totalTasks!!!
+
+    
+    FILE * vista = fopen(FILE_NAME, "w");
+    if(vista == NULL){
+        perror("Error openning vista");
+        exit(EXIT_FAILURE);
+    }
+
 
     generalTasksPending += prepareChildren(childArray, argv, childCount, initChildTaskCount, &taskCounter);
     
+    int shm = shm_open(SHM_NAME, O_CREAT | O_RDWR, S_IRWXU);
+    if(shm == -1){
+        perror("Shared memory");
+        exit(EXIT_FAILURE);
+    }
+    if(ftruncate(shm, totalTasks*(40 + INPUT_MAX_SIZE)) == -1){
+        perror("Ftruncate");
+        exit(EXIT_FAILURE);
+    }
+    char * map = mmap(NULL,totalTasks*(40 + INPUT_MAX_SIZE), PROT_WRITE, MAP_SHARED, shm, 0);
+    if(map== MAP_FAILED){
+        perror("Mmap");
+        exit(EXIT_FAILURE);
+    }
 
+    close(shm);
+
+    sem_t * sem = sem_open(SEM_NAME, O_CREAT, O_RDWR, 1);
+    if(sem == SEM_FAILED){
+        perror("Semaphore");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("%d\n", totalTasks);
+    
     fd_set fdSet;
     int readAux;
     char* auxAnsCounter;
@@ -87,7 +127,7 @@ int main(int argc, char const *argv[]){
                 if(readAux){ //A veces lee EOF como available
                     output[readAux] = 0;
 
-                    outputInfo(output); //Imprimir en archivo y en memoria compartida
+                    outputInfo(output, vista, &mapCounter, map, sem); //Imprimir en archivo y en memoria compartida
 
                     auxAnsCounter = output;
                     while((auxAnsCounter = strchr(auxAnsCounter, '\n')) != NULL){ //Hubo tantas respuestas como \n
@@ -190,6 +230,14 @@ size_t prepareChildren(childStruct childArray[], char const *argv[], size_t chil
     return totalTasksDelivered;
 }
 
-void outputInfo(char output[]){
+void outputInfo(char output[], FILE * file, size_t * mapCounter, char * map, sem_t * sem){
+
+    fwrite(output, strlen(output), sizeof(output[0]), file );
+    sem_wait(sem);
+    for (size_t i = 0; output[i]!= '\0'; i++){
+        map[*(mapCounter)++]=output[i];
+    }
+    map[*(mapCounter)++]=0;
+    sem_post(sem);
     printf("%s", output); //Imprimir en archivo y en memoria compartida
 }

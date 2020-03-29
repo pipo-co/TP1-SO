@@ -12,6 +12,9 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/select.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+
 
 
 #define INPUT_MAX_SIZE 1000
