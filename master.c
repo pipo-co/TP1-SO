@@ -20,6 +20,7 @@
 #define CHILD_PATH "childCode.out"
 #define OUTPUT_SIZE 10000
 #define MAX_INIT_ARGS 20
+#define INPUT_MAX_SIZE 1000
 
 typedef struct childStruct{
     pid_t pid;
@@ -45,15 +46,18 @@ int main(int argc, char const *argv[]){
     
     setvbuf(stdout, NULL, _IONBF, 0);
 
-    childCount = 1; //Menos que MAX_NUM_CHILD
+    childCount = 5; //Menos que MAX_NUM_CHILD
     initChildTaskCount = 3; //Menos que MAX_INIT_ARGS
-    childTasksPerCycle = 1; //La consigna dice que tiene que ser 1. La variable existe para la abstraccion.
+    childTasksPerCycle = 5; //La consigna dice que tiene que ser 1. La variable existe para la abstraccion.
 
     if(childCount > MAX_NUM_CHILD)
-        childCount = MAX_NUM_CHILD; //childCount*initChildTaskCount < totalTasks!!!
+        childCount = MAX_NUM_CHILD;
 
     if(initChildTaskCount > MAX_INIT_ARGS)
         initChildTaskCount = MAX_INIT_ARGS;
+
+    if(childCount*initChildTaskCount > totalTasks)
+        initChildTaskCount = 0; //childCount*initChildTaskCount < totalTasks!!!
 
     generalTasksPending += prepareChildren(childArray, argv, childCount, initChildTaskCount, &taskCounter);
     
@@ -63,6 +67,7 @@ int main(int argc, char const *argv[]){
     char* auxAnsCounter;
     char output[OUTPUT_SIZE];
     int fdAvailable;
+    char inputBuff[INPUT_MAX_SIZE];
     while(taskCounter <= totalTasks || generalTasksPending > 0){
         FD_ZERO(&fdSet); 
 
@@ -95,8 +100,9 @@ int main(int argc, char const *argv[]){
                         //Le mando tareas al escalvo correspondiente
 
                         for (size_t j = 0; j < childTasksPerCycle && taskCounter <= totalTasks; j++){
-                            write(childArray[i].fdInput, argv[taskCounter], strlen(argv[taskCounter]) + 1); //Validar write
-                            //Escribo un espacio para separar?
+                            sprintf(inputBuff, "%s\n", argv[taskCounter]);
+                            write(childArray[i].fdInput, inputBuff, strlen(inputBuff)); //Validar write
+
                             taskCounter++;
                             childArray[i].tasksPending++;
                             generalTasksPending++;
@@ -110,8 +116,11 @@ int main(int argc, char const *argv[]){
     
 
     for (size_t i = 0; i < childCount; i++){
-        if(kill(childArray[i].pid, SIGKILL) == -1) //Esta bien que sea por kill?
-            perror("KILL");
+        if(close(childArray[i].fdInput) == -1)
+            perror("CLOSING INPUT");
+
+        if(close(childArray[i].fdOutput) == -1)
+            perror("CLOSING OUTPUT");
     }
 
     for (size_t i = 0; i < childCount; i++){

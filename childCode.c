@@ -18,6 +18,7 @@
 #define COMMAND_MAX_SIZE 1000
 #define PIPE_WRITE 1
 #define PIPE_READ 0
+#define REQUEST_DELIM "\n"
 
 int processRequest(const char* input, char command[], size_t commandSize);
 
@@ -37,14 +38,22 @@ int main(int argc, char const *argv[]){
     }
 
     int readAux;
-    
-    while(1){
-        if((readAux = read(STDIN_FILENO, input, INPUT_MAX_SIZE)) == -1) //Puede aux ser 0?
+    char* request;
+    while((readAux = read(STDIN_FILENO, input, INPUT_MAX_SIZE)) != 0){ //Leer hasta EOF
+        if(readAux  == -1){
             perror("FALLO EL READ");
+            exit(EXIT_FAILURE);
+        }
+        input[readAux] = 0; //No viene con 0 al final
 
-        if(readAux){      
-            processRequest(input, command, COMMAND_MAX_SIZE);
-            printf("%d\t%s\t%s\n", getpid(), basename(input), command);
+        request = strtok(input, REQUEST_DELIM);
+
+        //Procesa todas las request en input
+        while(request != NULL){
+            processRequest(request, command, COMMAND_MAX_SIZE);
+            printf("%d\t%s\t%s\n", getpid(), basename(request), command);
+
+            request = strtok(NULL, REQUEST_DELIM);
         }
     }
 
