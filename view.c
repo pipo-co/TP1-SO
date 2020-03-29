@@ -32,7 +32,6 @@
 int main(int argc, char const *argv[])
 {
     char totalTasks[MAX_TOTAL_TASKS];
-    
     int shm = shm_open(SHM_NAME, O_CREAT | O_RDWR, S_IRWXU);
     if(shm == -1){
         perror("Shared memory");
@@ -45,14 +44,14 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
     
-    int tTasks = atoi(totalTasks);
-    
-    if(ftruncate(shm, tTasks*(40 + INPUT_MAX_SIZE)) == -1){
+    size_t tTasks = atoi(totalTasks);
+    printf("%ld",tTasks);
+    if(ftruncate(shm, tTasks*(100)) == -1){
         perror("Ftruncate");
         exit(EXIT_FAILURE);
     }
     
-    char * map = mmap(NULL,tTasks*(40 + INPUT_MAX_SIZE), PROT_WRITE, MAP_SHARED, shm, 0);
+    char * map = mmap(NULL,tTasks*(100), PROT_WRITE, MAP_SHARED, shm, 0);
     
     if(map== MAP_FAILED){
         perror("Mmap");

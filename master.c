@@ -82,25 +82,26 @@ int main(int argc, char const *argv[]){
         perror("Shared memory");
         exit(EXIT_FAILURE);
     }
-    if(ftruncate(shm, totalTasks*(40 + INPUT_MAX_SIZE)) == -1){
+    if(ftruncate(shm, totalTasks*(100)) == -1){
         perror("Ftruncate");
         exit(EXIT_FAILURE);
     }
-    char * map = mmap(NULL,totalTasks*(40 + INPUT_MAX_SIZE), PROT_WRITE, MAP_SHARED, shm, 0);
+    char * map = mmap(NULL,totalTasks*(100), PROT_WRITE, MAP_SHARED, shm, 0);
     if(map== MAP_FAILED){
         perror("Mmap");
         exit(EXIT_FAILURE);
     }
 
-    close(shm);
-
+   close(shm);
+   
     sem_t * sem = sem_open(SEM_NAME, O_CREAT, O_RDWR, 1);
     if(sem == SEM_FAILED){
         perror("Semaphore");
         exit(EXIT_FAILURE);
     }
+    
 
-    printf("%d\n", totalTasks);
+    printf("%ld\n", totalTasks);
     
     fd_set fdSet;
     int readAux;
@@ -233,11 +234,11 @@ size_t prepareChildren(childStruct childArray[], char const *argv[], size_t chil
 void outputInfo(char output[], FILE * file, size_t * mapCounter, char * map, sem_t * sem){
 
     fwrite(output, strlen(output), sizeof(output[0]), file );
-    sem_wait(sem);
+   //sem_wait(sem);
     for (size_t i = 0; output[i]!= '\0'; i++){
         map[*(mapCounter)++]=output[i];
     }
     map[*(mapCounter)++]=0;
-    sem_post(sem);
+    //sem_post(sem);
     printf("%s", output); //Imprimir en archivo y en memoria compartida
 }
