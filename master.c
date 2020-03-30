@@ -28,7 +28,7 @@
 #define COMS_NAME "/sem2"
 #define OUTPUT_SIZE 10000
 #define MAX_INIT_ARGS 20
-#define INPUT_MAX_SIZE 15000
+#define INPUT_MAX_SIZE 1000
 
 typedef struct childStruct{
     pid_t pid;
@@ -59,8 +59,8 @@ int main(int argc, char const *argv[]){
 
     }
 
-    childCount = 10; //Menos que MAX_NUM_CHILD
-    initChildTaskCount = 3; //Menos que MAX_INIT_ARGS
+    childCount = 2; //Menos que MAX_NUM_CHILD
+    initChildTaskCount = 1; //Menos que MAX_INIT_ARGS
     childTasksPerCycle = 1; //La consigna dice que tiene que ser 1. La variable existe para la abstraccion.
 
     if(childCount > MAX_NUM_CHILD)
@@ -222,17 +222,16 @@ int main(int argc, char const *argv[]){
         }
         if(sem_unlink(COMS_NAME)==-1){
             perror("unlink");
-            exit(EXIT_FAILURE);
+            //exit(EXIT_FAILURE); por las dudas
         }
         if(munmap(map,totalTasks*(INPUT_MAX_SIZE))==-1){
            perror("munmap");
             exit(EXIT_FAILURE); 
         }
         if(sem_unlink(SM_NAME)==-1){
-            perror("unlink");
-            exit(EXIT_FAILURE);
+           // perror("unlink");
+            //exit(EXIT_FAILURE); por las dudas
         }
-    perror("termino main de master\n");
 }
 
 size_t prepareChildren(childStruct childArray[], char const *argv[], size_t childCount, size_t initChildTaskCount, size_t* taskCounter){

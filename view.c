@@ -28,14 +28,14 @@
 #define COMS_NAME "/sem2"
 #define OUTPUT_SIZE 10000
 #define MAX_INIT_ARGS 20
-#define INPUT_MAX_SIZE 15000
+#define INPUT_MAX_SIZE 1000
 #define MAX_TOTAL_TASKS 10
 
-int viewProcess(char * map, sem_t * sh_sem, sem_t * coms_sem);
+int viewProcess(char ** map, sem_t * sh_sem, sem_t * coms_sem);
 
 int main(int argc, char const *argv[])
 {
-     printf("hola1\n");
+    printf("hola1\n");
     char totalTasks[MAX_TOTAL_TASKS];
     int shm = shm_open(SHM_NAME, O_CREAT | O_RDWR, S_IRWXU);
     if(shm == -1){
@@ -44,14 +44,21 @@ int main(int argc, char const *argv[])
     }
     
     
-    if(read(STDIN_FILENO,totalTasks,strlen(totalTasks))==-1){
+    if(read(STDIN_FILENO,totalTasks,MAX_TOTAL_TASKS)==-1){
         perror("Error while reading");
         exit(EXIT_FAILURE);
     }
     
     size_t tTasks = atoi(totalTasks);
-    if(tTasks==5)
-        printf("view %ld\n",tTasks);
+    
+    if(tTasks==5){
+        while(1){
+            printf("view %ld\n",tTasks);
+        }
+    }
+    
+    
+    
     if(ftruncate(shm, tTasks*(INPUT_MAX_SIZE)) == -1){
         perror("Ftruncate");
         exit(EXIT_FAILURE);
@@ -78,7 +85,7 @@ int main(int argc, char const *argv[])
    
     
 
-    while(viewProcess(map, sm_sem, coms_sem));
+    while(viewProcess(&map, sm_sem, coms_sem));
    
 
     sem_close(sm_sem);
@@ -90,21 +97,22 @@ int main(int argc, char const *argv[])
     return 0;
 }
 
-int viewProcess(char * map, sem_t *sm_sem, sem_t * coms_sem){
+int viewProcess(char ** map, sem_t *sm_sem, sem_t * coms_sem){
     //printf("chaucha\n");
     if(sem_wait(coms_sem)==-1){
         perror("sem_wait");
         exit(EXIT_FAILURE);
     }
-    //printf("chau\n");
+    //perror("chau\n");
     if(sem_wait(sm_sem)==-1){
         perror("sem_wait");
         exit(EXIT_FAILURE);
     }
     //printf("chau2\n");
-    if(*map != 0){
-        printf("%s", map);
-        map+=strlen(map)+1;
+    if(**map != 0){
+        printf("%s", *map);
+        (*map)+=strlen(*map);
+        **map=0;
        // printf("chau3\n");
         if(sem_post(sm_sem)==-1){
             perror("sem_post");
@@ -113,7 +121,7 @@ int viewProcess(char * map, sem_t *sm_sem, sem_t * coms_sem){
        // printf("chau4\n");
         return 1;
     }
-    printf("ESTE ES EL MEJOR PRONTF");
+    //printf("ESTE ES EL MEJOR PRONTF");
     return 0;
             
 }
