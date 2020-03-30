@@ -90,6 +90,8 @@ int viewProcess(char ** map, sem_t *sm_sem, sem_t * coms_sem){
 
         return 1;
     }
+    if(sem_post(sm_sem) == -1)
+            HANDLE_ERROR("View - Post Sempahore sm_sem");
     return 0;         
 }
 

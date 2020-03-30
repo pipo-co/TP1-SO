@@ -69,7 +69,7 @@ int main(int argc, char const *argv[]){
         if(initChildTaskCount > MAX_INIT_ARGS)
             initChildTaskCount = MAX_INIT_ARGS;
 
-        if(childCount*initChildTaskCount >= totalTasks || initChildTaskCount < 0)
+        if(childCount*initChildTaskCount >= totalTasks || initChildTaskCount == 0)
             initChildTaskCount = 1;
     
     //Shared Memory and Sempahores Initialization
