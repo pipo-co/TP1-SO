@@ -12,22 +12,27 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/select.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 
-
-#define INPUT_MAX_SIZE 1000
-#define COMMAND_MAX_SIZE 1000
+#define INPUT_MAX_SIZE 200
+#define COMMAND_MAX_SIZE 200
 #define PIPE_WRITE 1
 #define PIPE_READ 0
 #define REQUEST_DELIM "\n"
 
-int processRequest(const char* input, char command[], size_t commandSize);
+#define HANDLE_ERROR(msg) \
+    do { perror(msg); exit(EXIT_FAILURE); } while(0)
+
+void processRequest(const char* input, char command[], size_t commandSize);
 
 int main(int argc, char const *argv[]){
 
     //Por stdin debe venir los path a los archivos minisat que le da master
     //Por stdout devuelve la info que consiguio de minisat parseada
 
-    setvbuf(stdout, NULL, _IONBF, 0);
+    if(setvbuf(stdout, NULL, _IONBF, 0) != 0)
+        HANDLE_ERROR("Child - Setvbuf");
 
     char input[INPUT_MAX_SIZE];
     char command[COMMAND_MAX_SIZE];
@@ -40,10 +45,8 @@ int main(int argc, char const *argv[]){
     int readAux;
     char* request;
     while((readAux = read(STDIN_FILENO, input, INPUT_MAX_SIZE)) != 0){ //Leer hasta EOF
-        if(readAux  == -1){
-            perror("FALLO EL READ");
-            exit(EXIT_FAILURE);
-        }
+        if(readAux  == -1)
+            HANDLE_ERROR("Child - Reading File Name");
         input[readAux] = 0; //No viene con 0 al final
 
         request = strtok(input, REQUEST_DELIM);
@@ -56,23 +59,27 @@ int main(int argc, char const *argv[]){
             request = strtok(NULL, REQUEST_DELIM);
         }
     }
-
     return 0;
 }
 
-int processRequest(const char* input, char command[], size_t commandSize){
+void processRequest(const char* input, char command[], size_t commandSize){
     size_t commandLen = 0;
     char* aux;
     
     sprintf(command, "minisat %s | grep -o -e \"Number of .*[0-9]\\+\" -e \"CPU time.*\" -e \".*SATISFIABLE\" | grep -o -e \"[0-9]\\+.[0-9]\\+\" -e \"[0-9]\\+\" -e \".*SATISFIABLE\"", input);
 
-    FILE* fp = popen(command, "r"); //Validar
+    FILE* fp = popen(command, "r");
+    if(fp == NULL)
+        HANDLE_ERROR("Child - Popen");
 
     commandLen = fread(command, sizeof(char), commandSize, fp); //Validar que sea EOF o error.
+    if(ferror(fp))
+        HANDLE_ERROR("Child - Fread of command answer");
     command[commandLen] = 0;
 
     while((aux = strchr(command, '\n')) != NULL) //Replace all \n with \t
         *aux = '\t';
 
-    return pclose(fp); //Validar pclose
+    if(pclose(fp) == -1)
+        HANDLE_ERROR("Child - Pclose");
 }
