@@ -3,19 +3,19 @@
 #define _POSIX_C_SOURCE 200112L
 
 #include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <string.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/select.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <signal.h>
+    #include <sys/types.h>
+    #include <sys/stat.h>
+    #include <dirent.h>
+    #include <string.h>
+    #include <stdlib.h>
+    #include <errno.h>
+    #include <unistd.h>
+    #include <sys/types.h>
+    #include <sys/wait.h>
+    #include <sys/select.h>
+    #include <sys/mman.h>
+    #include <fcntl.h>
+    #include <signal.h>
 #include <semaphore.h>
 
 #define MAX_NUM_CHILD 5
@@ -41,21 +41,21 @@ typedef struct childStruct{
 }childStruct;
 
 //Returns total tasks delivered to children on init.
-size_t prepareChildren(childStruct childArray[], char const *argv[], size_t childCount, size_t initChildTaskCount, size_t* taskCounter);
-void outputInfo(char output[], FILE * file, size_t * mapCounter, char * map, sem_t * sm_sem, sem_t * coms_sem);
-void freeResources(sem_t* sm_sem, sem_t* coms_sem, char* map, size_t totalTasks, FILE * outputFile);
+size_t prepareChildren(childStruct childArray[], char const *taskArray[], size_t childCount, size_t initChildTaskCount, size_t* taskCounter);
+void outputInfo(char output[], FILE* file, size_t* mapCounter, char* map, sem_t* coms_sem, size_t tasksRecivedCounter);
+void freeResources(sem_t* coms_sem, char* map, size_t totalTasks, FILE * outputFile);
 int checkForAnswers(childStruct * childArray,  size_t childCount, fd_set * rfds);
-size_t assignTasks(int fd, const char * argv[], size_t tasksToAssign);
+size_t assignTasks(int fd, char const *taskArray[], size_t tasksToAssign);
 int minimum(int n1, int n2);
 
 int main(int argc, char const *argv[]){
 
+    const char ** taskArray = argv + 1;
     childStruct childArray[MAX_NUM_CHILD];
-
     size_t childCount;
     size_t initChildTaskCount;
     size_t childTasksPerCycle;
-    size_t taskCounter = 1;
+    size_t taskCounter = 0;
     size_t totalTasks = argc - 1;
     size_t generalTasksPending = 0;
     size_t mapCounter = 0;
@@ -92,9 +92,6 @@ int main(int argc, char const *argv[]){
         if(close(shm) == -1)
             perror("Master - Close Shm");
 
-        sem_t * sm_sem = sem_open(SM_NAME, O_EXCL | O_CREAT, O_RDWR, 1);
-        if(sm_sem == SEM_FAILED)
-            HANDLE_ERROR("Master - Semaphore open sm");
         
         sem_t * coms_sem = sem_open(COMS_NAME, O_EXCL | O_CREAT, O_RDWR, 0);
         if(coms_sem == SEM_FAILED)
@@ -105,7 +102,7 @@ int main(int argc, char const *argv[]){
             HANDLE_ERROR("Master - Opening output file");
 
 
-    generalTasksPending += prepareChildren(childArray, argv, childCount, initChildTaskCount, &taskCounter);
+    generalTasksPending += prepareChildren(childArray, taskArray, childCount, initChildTaskCount, &taskCounter);
     
     //Le pasamos a View la cantidad de files
     printf("%ld\n", totalTasks);
@@ -115,32 +112,36 @@ int main(int argc, char const *argv[]){
     char* auxAnsCounter;
     char output[OUTPUT_MAX_SIZE];
     int fdAvailable;
+    size_t tasksRecivedCount;
     
-    while(taskCounter <= totalTasks || generalTasksPending > 0){
+    while(taskCounter < totalTasks || generalTasksPending > 0){
         
         fdAvailable = checkForAnswers(childArray, childCount, &fdSet);
 
         for(size_t i = 0; fdAvailable > 0 && i < childCount && generalTasksPending > 0; i++){
             if(FD_ISSET(childArray[i].fdOutput, &fdSet)){
-              
                 if((readAux = read(childArray[i].fdOutput, output, OUTPUT_MAX_SIZE)) == -1)
                     HANDLE_ERROR("Master - Read Output from child");
                     
                 if(readAux){ //A veces lee EOF como available
                     output[readAux] = 0;
                      
-                    outputInfo(output, fileOutput, &mapCounter, map, sm_sem, coms_sem); //Imprimir en archivo y en memoria compartida
-                          
+
+                    tasksRecivedCount = 0;
                     auxAnsCounter = output;
                     while((auxAnsCounter = strchr(auxAnsCounter, '\n')) != NULL){ //Hubo tantas respuestas como \n
-                        childArray[i].tasksPending--;
-                        generalTasksPending--;
+                        tasksRecivedCount++;
                         auxAnsCounter++;
                     }
 
+                    outputInfo(output, fileOutput, &mapCounter, map, coms_sem, tasksRecivedCount); //Imprimir en archivo y en memoria compartida
+
+                    childArray[i].tasksPending -= tasksRecivedCount;
+                    generalTasksPending -= tasksRecivedCount;
+
                     if(childArray[i].tasksPending <= 0){
                         //Le mando tareas al escalvo correspondiente
-                        size_t taskAsigned = assignTasks(childArray[i].fdInput, argv + taskCounter, minimum(totalTasks + 1 - taskCounter, childTasksPerCycle));
+                        size_t taskAsigned = assignTasks(childArray[i].fdInput, taskArray + taskCounter, minimum(totalTasks - taskCounter, childTasksPerCycle));
                         generalTasksPending += taskAsigned;
                         taskCounter += taskAsigned;
                         childArray[i].tasksPending += taskAsigned;
@@ -168,10 +169,10 @@ int main(int argc, char const *argv[]){
         if(sem_post(coms_sem)== -1)
                 HANDLE_ERROR("Master - Post coms_sem");
         
-        freeResources(sm_sem, coms_sem, map, totalTasks, fileOutput);   
+        freeResources( coms_sem, map, totalTasks, fileOutput);   
 }
 
-size_t prepareChildren(childStruct childArray[], char const *argv[], size_t childCount, size_t initChildTaskCount, size_t* taskCounter){
+size_t prepareChildren(childStruct childArray[], char const *taskArray[], size_t childCount, size_t initChildTaskCount, size_t* taskCounter){
 
     int fdPipeInput[2];
     int fdPipeOutput[2];
@@ -217,7 +218,7 @@ size_t prepareChildren(childStruct childArray[], char const *argv[], size_t chil
 
             initArgsArray[0] = CHILD_PATH;
             for(size_t i = 1; i <= initChildTaskCount; i++)
-                initArgsArray[i] = argv[(*taskCounter)++];
+                initArgsArray[i] = taskArray[(*taskCounter)++];
             initArgsArray[initChildTaskCount + 1] = NULL;
 
             execv(CHILD_PATH,  initArgsArray);
@@ -237,42 +238,31 @@ size_t prepareChildren(childStruct childArray[], char const *argv[], size_t chil
     return totalTasksDelivered;
 }
 
-void outputInfo(char output[], FILE* file, size_t* mapCounter, char* map, sem_t* sm_sem, sem_t* coms_sem){
-
-    int sval;
+void outputInfo(char output[], FILE* file, size_t* mapCounter, char* map, sem_t* coms_sem, size_t tasksRecivedCounter){
 
     if(fwrite(output, strlen(output), sizeof(output[0]), file) == 0)
         HANDLE_ERROR("Master - Fwrite to output file");
 
-    if(sem_wait(sm_sem) == -1)
-        HANDLE_ERROR("Master - Wait Semaphore sm_sem");
-
     size_t outputSize = strlen(output);
-    memcpy( map + *mapCounter, output, outputSize);
+    memcpy(map + *mapCounter, output, outputSize);
     *mapCounter += outputSize;
 
-    if(sem_post(sm_sem) == -1)
-        HANDLE_ERROR("Master - Post Semaphore sm_sem");
-
-    if(sem_getvalue(coms_sem, &sval) == -1)
-        HANDLE_ERROR("Master - Get Value Semaphore coms_sem");
-
-    if(sval < 1)
+    for(size_t i = 0; i < tasksRecivedCounter; i++)
         if(sem_post(coms_sem) == -1)
-            HANDLE_ERROR("Master - Post Semaphore coms_sem");
+            HANDLE_ERROR("Master - Post Semaphore sm_sem");
 }
 
-void freeResources(sem_t* sm_sem, sem_t* coms_sem, char* map, size_t totalTasks, FILE * outputFile){
+void freeResources( sem_t* coms_sem, char* map, size_t totalTasks, FILE * outputFile){
     
     if(fclose(outputFile) == EOF)
         perror("Master - Close output FILE");
     
-    if(sem_close(sm_sem) == -1)
-            perror("Master - Close Semaphore sm_sem");
+    // if(sem_close(sm_sem) == -1)
+    //         perror("Master - Close Semaphore sm_sem");
 
-    if(sem_unlink(SM_NAME) == -1)
-        if(errno != ENOENT)
-            perror("Master - Unlink Semaphore sm_sem");
+    // if(sem_unlink(SM_NAME) == -1)
+    //     if(errno != ENOENT)
+    //         perror("Master - Unlink Semaphore sm_sem");
 
     if(sem_close(coms_sem) == -1)
         perror("Master - Close Semaphore coms_sem");
@@ -304,14 +294,14 @@ int checkForAnswers(childStruct * childArray,  size_t childCount, fd_set * rfds)
     return ans;
 }
 
-size_t assignTasks(int fd, const char * argv[], size_t tasksToAssign){
+size_t assignTasks(int fd, char const *taskArray[], size_t tasksToAssign){
 
     char inputBuff[INPUT_MAX_SIZE];
     
     for (size_t i = 0; i < tasksToAssign; i++){
-        sprintf(inputBuff, "%s\n", argv[i]);
+        sprintf(inputBuff, "%s\n", taskArray[i]);
         
-        if(write(fd, inputBuff, strlen(inputBuff))== -1)
+        if(write(fd, inputBuff, strlen(inputBuff)) == -1)
             HANDLE_ERROR("Master - Write to send file path to child");
     }
     return tasksToAssign;

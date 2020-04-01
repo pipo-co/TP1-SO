@@ -18,7 +18,6 @@
 #include <semaphore.h>
 
 #define SHM_NAME "/shm"
-#define SM_NAME "/sm_sem"
 #define COMS_NAME "/coms_sem"
 #define OUTPUT_MAX_SIZE 250
 #define MAX_INT_LEN 10
@@ -26,8 +25,8 @@
 #define HANDLE_ERROR(msg) \
     do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
-int viewProcess(char ** map, sem_t * sh_sem, sem_t * coms_sem);
-void freeResources(sem_t* sm_sem, sem_t* coms_sem, char* map, size_t totalTasks);
+void viewProcess(char ** mapIter, sem_t * coms_sem);
+void freeResources(sem_t* coms_sem, char* map, size_t totalTasks);
 
 int main(int argc, char const *argv[]){
 
@@ -56,10 +55,6 @@ int main(int argc, char const *argv[]){
         if(shm_unlink(SHM_NAME) == -1)
             perror("Master - Unlink Shared Memory");
 
-        sem_t * sm_sem = sem_open(SM_NAME, O_CREAT, O_RDWR,1);
-        if(sm_sem == SEM_FAILED)
-            HANDLE_ERROR("View - Open Semaphore sm_sem");
-
         sem_t * coms_sem = sem_open(COMS_NAME, O_CREAT, O_RDWR, 0);
         if(coms_sem == SEM_FAILED)
             HANDLE_ERROR("View - Open Semaphore coms_sem");
@@ -67,45 +62,31 @@ int main(int argc, char const *argv[]){
     char* mapIter = map;
 
     //Main process
-    while(viewProcess(&mapIter, sm_sem, coms_sem));
-
-    freeResources(sm_sem, coms_sem, map, totalTasks);
+    for (size_t tasksDone = 0; tasksDone < totalTasks; tasksDone++)
+        viewProcess(&mapIter, coms_sem);
+    
+    freeResources(coms_sem, map, totalTasks);
     return 0;
 }
 
-int viewProcess(char ** mapIter, sem_t *sm_sem, sem_t * coms_sem){
-
+void viewProcess(char ** mapIter, sem_t * coms_sem){
+    char * printPtr = *mapIter;
+    //printf("%s", printPtr); 
+    
     if(sem_wait(coms_sem) == -1)
         HANDLE_ERROR("View - Wait Sempahore coms_sem");
 
+    if((*mapIter = strchr(*mapIter, '\n')) == NULL)
+        perror("View - Tried to output an incomplete task");
 
-    if(sem_wait(sm_sem) == -1)
-        HANDLE_ERROR("View - Wait Sempahore sm_sem");
+    **mapIter = '\0';
+    (*mapIter)++;  
 
-    if(**mapIter != 0){
-
-        printf("%s", *mapIter);
-        *mapIter += strlen(*mapIter);
-
-        if(sem_post(sm_sem) == -1)
-            HANDLE_ERROR("View - Post Sempahore sm_sem");
-
-        return 1;
-    }
-
-    if(sem_post(sm_sem) == -1)
-            HANDLE_ERROR("View - Post Sempahore sm_sem");
-    return 0;         
+    printf("%s\n", printPtr);    
 }
 
-void freeResources(sem_t* sm_sem, sem_t* coms_sem, char* map, size_t totalTasks){
-    if(sem_close(sm_sem) == -1)
-            perror("View - Close Semaphore sm_sem");
-
-    if(sem_unlink(SM_NAME) == -1)
-        if(errno != ENOENT)
-            perror("Master - Unlink Semaphore sm_sem");
-
+void freeResources( sem_t* coms_sem, char* map, size_t totalTasks){
+    
     if(sem_close(coms_sem) == -1)
         perror("View - Close Semaphore coms_sem");
 
@@ -116,3 +97,26 @@ void freeResources(sem_t* sm_sem, sem_t* coms_sem, char* map, size_t totalTasks)
     if(munmap(map, totalTasks * OUTPUT_MAX_SIZE) == -1)
         perror("View - Munmap");
 }
+
+// if(sem_wait(sm_sem) == -1)
+//         HANDLE_ERROR("View - Wait Sempahore sm_sem");
+
+//     if(*tasksDone < totalTasks){
+
+//         printf("%s", *mapIter);
+
+//         while(*mapIter = strchr(*mapIter, '\n') != NULL){
+//             (*tasksDone)++;
+//             (*mapIter)++;
+//         }
+
+//         // *mapIter += strlen(*mapIter);
+
+//         if(sem_post(sm_sem) == -1)
+//             HANDLE_ERROR("View - Post Sempahore sm_sem");
+
+//         return 1;
+//     }
+
+//     if(sem_post(sm_sem) == -1)
+//             HANDLE_ERROR("View - Post Sempahore sm_sem");
