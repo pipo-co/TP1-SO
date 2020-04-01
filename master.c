@@ -24,7 +24,6 @@
 #define CHILD_PATH "childCode.out"
 #define FILE_NAME "output.txt"
 #define SHM_NAME "/shm"
-#define SM_NAME "/sm_sem"
 #define COMS_NAME "/coms_sem"
 #define OUTPUT_MAX_SIZE 250
 #define MAX_INIT_ARGS 20
@@ -66,7 +65,7 @@ int main(int argc, char const *argv[]){
     //Seting Configuration Variables and consecuent validation
         childCount = 8; //Menos que MAX_NUM_CHILD
         initChildTaskCount = 3; //Menos que MAX_INIT_ARGS. No puede ser 0.
-        childTasksPerCycle = 1; //La consigna dice que tiene que ser 1. La variable existe para la abstraccion.
+        childTasksPerCycle = 5; //La consigna dice que tiene que ser 1. La variable existe para la abstraccion.
 
         if(childCount > MAX_NUM_CHILD)
             childCount = MAX_NUM_CHILD;
@@ -102,11 +101,13 @@ int main(int argc, char const *argv[]){
             HANDLE_ERROR("Master - Opening output file");
 
 
-    generalTasksPending += prepareChildren(childArray, taskArray, childCount, initChildTaskCount, &taskCounter);
-    
     //Le pasamos a View la cantidad de files
     printf("%ld\n", totalTasks);
-    
+
+    sleep(2); //La consigna pide que mastre dure mas de 2 segundos
+
+    generalTasksPending += prepareChildren(childArray, taskArray, childCount, initChildTaskCount, &taskCounter);
+        
     fd_set fdSet;
     int readAux;
     char* auxAnsCounter;
@@ -249,7 +250,7 @@ void outputInfo(char output[], FILE* file, size_t* mapCounter, char* map, sem_t*
 
     for(size_t i = 0; i < tasksRecivedCounter; i++)
         if(sem_post(coms_sem) == -1)
-            HANDLE_ERROR("Master - Post Semaphore sm_sem");
+            HANDLE_ERROR("Master - Post Semaphore coms_sem");
 }
 
 void freeResources( sem_t* coms_sem, char* map, size_t totalTasks, FILE * outputFile){
@@ -257,12 +258,6 @@ void freeResources( sem_t* coms_sem, char* map, size_t totalTasks, FILE * output
     if(fclose(outputFile) == EOF)
         perror("Master - Close output FILE");
     
-    // if(sem_close(sm_sem) == -1)
-    //         perror("Master - Close Semaphore sm_sem");
-
-    // if(sem_unlink(SM_NAME) == -1)
-    //     if(errno != ENOENT)
-    //         perror("Master - Unlink Semaphore sm_sem");
 
     if(sem_close(coms_sem) == -1)
         perror("Master - Close Semaphore coms_sem");

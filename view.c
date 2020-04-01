@@ -71,7 +71,6 @@ int main(int argc, char const *argv[]){
 
 void viewProcess(char ** mapIter, sem_t * coms_sem){
     char * printPtr = *mapIter;
-    //printf("%s", printPtr); 
     
     if(sem_wait(coms_sem) == -1)
         HANDLE_ERROR("View - Wait Sempahore coms_sem");
@@ -97,26 +96,3 @@ void freeResources( sem_t* coms_sem, char* map, size_t totalTasks){
     if(munmap(map, totalTasks * OUTPUT_MAX_SIZE) == -1)
         perror("View - Munmap");
 }
-
-// if(sem_wait(sm_sem) == -1)
-//         HANDLE_ERROR("View - Wait Sempahore sm_sem");
-
-//     if(*tasksDone < totalTasks){
-
-//         printf("%s", *mapIter);
-
-//         while(*mapIter = strchr(*mapIter, '\n') != NULL){
-//             (*tasksDone)++;
-//             (*mapIter)++;
-//         }
-
-//         // *mapIter += strlen(*mapIter);
-
-//         if(sem_post(sm_sem) == -1)
-//             HANDLE_ERROR("View - Post Sempahore sm_sem");
-
-//         return 1;
-//     }
-
-//     if(sem_post(sm_sem) == -1)
-//             HANDLE_ERROR("View - Post Sempahore sm_sem");
