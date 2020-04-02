@@ -43,20 +43,20 @@ typedef struct childStruct{
 }childStruct;
 
 //Returns total tasks delivered to children on init.
-size_t prepareChildren(childStruct childArray[], char const *taskArray[], size_t childCount, size_t initChildTaskCount, size_t* taskCounter);
+size_t prepareChildren(childStruct childArray[], char *taskArray[], size_t childCount, size_t initChildTaskCount, size_t* taskCounter);
 void outputInfo(char output[], FILE* file, size_t* mapCounter, char* map, sem_t* coms_sem, size_t tasksRecivedCounter);
-void * initializeSHMSpace(const char * name, int oFlags, mode_t mode, int prot, size_t size);
+void * initializeSHMSpace(char * name, int oFlags, mode_t mode, int prot, size_t size);
 void prepareChildOutputFdSet(childStruct * childArray,  size_t childCount, fd_set * rfds);
 void freeResources(sem_t* coms_sem, char* map, size_t totalTasks, FILE * outputFile);
-size_t assignTasks(int fd, char const *taskArray[], size_t tasksToAssign);
+size_t assignTasks(int fd, char *taskArray[], size_t tasksToAssign);
 void colectChildren(childStruct childArray[], size_t childCount);
 int minimum(int n1, int n2);
 
-int main(int argc, char const *argv[]){
+int main(int argc, char *argv[]){
     if(argc == 1)
         return 0;
 
-    const char ** taskArray = argv + 1;
+    char ** taskArray = argv + 1;
     childStruct childArray[MAX_NUM_CHILD];
     size_t childCount, initChildTaskCount, childTasksPerCycle;
     size_t taskCounter = 0;
@@ -151,7 +151,7 @@ int main(int argc, char const *argv[]){
     return 0;
 }
 
-size_t prepareChildren(childStruct childArray[], char const *taskArray[], size_t childCount, size_t initChildTaskCount, size_t* taskCounter){
+size_t prepareChildren(childStruct childArray[], char *taskArray[], size_t childCount, size_t initChildTaskCount, size_t* taskCounter){
 
     int fdPipeInput[2];
     int fdPipeOutput[2];
@@ -239,7 +239,7 @@ void prepareChildOutputFdSet(childStruct * childArray,  size_t childCount, fd_se
         FD_SET(childArray[i].fdOutput, rfds);  
 }
 
-size_t assignTasks(int fd, char const *taskArray[], size_t tasksToAssign){
+size_t assignTasks(int fd, char *taskArray[], size_t tasksToAssign){
 
     char inputBuff[INPUT_MAX_SIZE];
     
@@ -252,7 +252,7 @@ size_t assignTasks(int fd, char const *taskArray[], size_t tasksToAssign){
     return tasksToAssign;
 }
 
-void *initializeSHMSpace(const char * name, int oFlags, mode_t mode, int prot, size_t size){
+void *initializeSHMSpace(char * name, int oFlags, mode_t mode, int prot, size_t size){
 
     int shm = shm_open(name,  oFlags, mode);
     if(shm == -1)
