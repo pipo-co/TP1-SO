@@ -41,7 +41,7 @@ int main(int argc, char const *argv[]){
         totalTasks = atoi(argv[1]);
 
     //Shared Memory and Sempahores Initialization
-        int shm = shm_open(SHM_NAME, O_CREAT | O_RDWR, S_IRWXU);
+        int shm = shm_open(SHM_NAME, O_RDWR, S_IRWXU);
         if(shm == -1)
             HANDLE_ERROR("View - Open Shared Memory");
 

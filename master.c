@@ -21,15 +21,15 @@
 #define MAX_NUM_CHILD 5
 #define PIPE_WRITE 1
 #define PIPE_READ 0
-#define CHILD_COUNT 8
-#define INIT_CHILD_TASK_COUNT 3
+#define MIN_CHILD_COUNT 2
+#define MIN_INIT_CHILD_TASK_COUNT 1
 #define CHILD_TASK_PER_CYCLE 1
 #define CHILD_PATH "childCode.out"
 #define FILE_NAME "output.txt"
 #define SHM_NAME "/shm"
 #define COMS_NAME "/coms_sem"
 #define OUTPUT_MAX_SIZE 250
-#define MAX_INIT_ARGS 20
+#define MAX_INIT_ARGS 50
 #define INPUT_MAX_SIZE 200
 
 #define HANDLE_ERROR(msg) \
@@ -66,8 +66,8 @@ int main(int argc, char const *argv[]){
         HANDLE_ERROR("Master - Setvbuf");
 
     //Seting Configuration Variables and consecuent validation
-        childCount = CHILD_COUNT; //Menos que MAX_NUM_CHILD
-        initChildTaskCount = INIT_CHILD_TASK_COUNT; //Menos que MAX_INIT_ARGS. No puede ser 0.
+        childCount = (MIN_CHILD_COUNT >= totalTasks/100) ? MIN_CHILD_COUNT : totalTasks/100 ; //Menos que MAX_NUM_CHILD
+        initChildTaskCount = (MIN_INIT_CHILD_TASK_COUNT >= totalTasks/100) ? MIN_INIT_CHILD_TASK_COUNT : totalTasks/100 ; //Menos que MAX_INIT_ARGS. No puede ser 0.
         childTasksPerCycle = CHILD_TASK_PER_CYCLE; //La consigna dice que tiene que ser 1. La variable existe para la abstraccion.
 
         if(childCount > MAX_NUM_CHILD)
@@ -76,7 +76,7 @@ int main(int argc, char const *argv[]){
         if(initChildTaskCount > MAX_INIT_ARGS)
             initChildTaskCount = MAX_INIT_ARGS;
 
-        if(childCount*initChildTaskCount >= totalTasks || initChildTaskCount == 0)
+        if(childCount*initChildTaskCount >= totalTasks)
             initChildTaskCount = 1;
     //End Configuration
     
@@ -93,11 +93,12 @@ int main(int argc, char const *argv[]){
     //End Initialization
 
     
-    printf("%ld\n", totalTasks); //Le pasamos a View la cantidad de files
+    printf("%zu\n", totalTasks); //Le pasamos a View la cantidad de files
     sleep(2); //La consigna pide que master dure mas de 2 segundos
 
     generalTasksPending += prepareChildren(childArray, taskArray, childCount, initChildTaskCount, &taskCounter);
         
+    //Main Logic of Master
     fd_set fdSet;
     int fdAvailable, readAux;
     char output[OUTPUT_MAX_SIZE];
@@ -112,7 +113,7 @@ int main(int argc, char const *argv[]){
 
         for(size_t i = 0; fdAvailable > 0 && i < childCount && generalTasksPending > 0; i++){
             if(FD_ISSET(childArray[i].fdOutput, &fdSet)){
-                if((readAux = read(childArray[i].fdOutput, output, OUTPUT_MAX_SIZE)) == -1)
+                if((readAux = read(childArray[i].fdOutput, output, OUTPUT_MAX_SIZE - 1)) == -1)
                     HANDLE_ERROR("Master - Read Output from child");
                     
                 if(readAux){ //Lee EOF como available
@@ -141,9 +142,10 @@ int main(int argc, char const *argv[]){
     }
     
     //Collect children and Free Resources
-        
+        colectChildren(childArray, childCount);
+        freeResources(coms_sem, map, totalTasks, fileOutput);
 
-        freeResources( coms_sem, map, totalTasks, fileOutput);   
+    return 0;
 }
 
 size_t prepareChildren(childStruct childArray[], char const *taskArray[], size_t childCount, size_t initChildTaskCount, size_t* taskCounter){
