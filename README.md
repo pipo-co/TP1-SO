@@ -1,11 +1,11 @@
 # TP1-SO
 Trabajo Practico 1 de Sistemas Operativos.
-Solucion implementada por el Grupo 3:
+Solucion implementada por el Grupo PiPo:
 - Brandy, Tobias
 - Pannunzio, Faustino
 - Sagues, Ignacio
 
-__Objetivo:__ Implementar un programa que permita resolver multiples problemas de SATsolving utilizando minisat y distribuyendo las tareas en multiples hijos para tener un mejor desempeño.
+__Objetivo:__ Implementar un programa que permita resolver multiples problemas de SAT-solving utilizando minisat y distribuyendo las tareas en multiples hijos para tener un mejor desempeño.
 Los resultados de este proceso son impresos en pantalla por un segundo proceso "view" y escrito al archivo "output.txt"
 
 ## Compilacion 
