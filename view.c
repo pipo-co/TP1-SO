@@ -30,10 +30,11 @@ void freeResources(sem_t* coms_sem, char* map, size_t totalTasks);
 
 int main(int argc, char const *argv[]){
 
-    char totalTasksBuff[MAX_INT_LEN];
     size_t totalTasks;
 
     if(argc <= 1){ //Recibe info por stdin
+        char totalTasksBuff[MAX_INT_LEN];
+        
         if(read(STDIN_FILENO, totalTasksBuff, MAX_INT_LEN) == -1)
             HANDLE_ERROR("View - Error Reading Stdin");
         totalTasks = atoi(totalTasksBuff);
