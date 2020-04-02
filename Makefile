@@ -1,21 +1,32 @@
+CC = gcc
+CFLAGS = -pedantic -Wall -std=c99 -pthread -lrt
+RM = rm -f
+
 SOURCES = $(wildcard *.c)
 BINS = $(SOURCES:.c=.out)
-CPPANS = $(SOURCES:.c=.cppout)
-FLAGS = -pedantic -Wall -std=c99 -pthread -lrt
+
+CPPANS = $(SOURCES:.c=.cppout)	
+
+#Test Files 
+TF = prueba/*
 
 all: $(BINS)
 
 %.out: %.c
-	gcc $(FLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@
 
-clean:
-	rm -f $(BINS) $(CPPANS) report.tasks
+clean: clean_test
+	$(RM) $(BINS)
 
-test: $(CPPANS)
-	./pvs.sh
+clean_test:
+	$(RM) $(CPPANS) *.valout report.tasks
+
+test: clean $(CPPANS) 
+	./pvs.sh $(TOP)
+	valgrind ./master.out $(TF) 2> master.valout | valgrind ./view.out 2> view.valout
 
 %.cppout: %.c
 	cppcheck --quiet --enable=all --force --inconclusive  $^ 2> $@
 
 
-.PHONY: all clean test
+.PHONY: all clean test clean_test

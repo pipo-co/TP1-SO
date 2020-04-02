@@ -5,3 +5,6 @@ prueba/*
 .DS_Store
 output.txt
 view.out
+*.cppout
+*tasks
+*.valout

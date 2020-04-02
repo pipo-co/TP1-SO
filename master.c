@@ -28,7 +28,7 @@
 #define FILE_NAME "output.txt"
 #define SHM_NAME "/shm"
 #define COMS_NAME "/coms_sem"
-#define OUTPUT_MAX_SIZE 250
+#define OUTPUT_MAX_SIZE INPUT_MAX_SIZE + 50
 #define MAX_INIT_ARGS 50
 #define INPUT_MAX_SIZE 200
 
@@ -304,7 +304,6 @@ void freeResources( sem_t* coms_sem, char* map, size_t totalTasks, FILE * output
     if(munmap(map, totalTasks * OUTPUT_MAX_SIZE) == -1)
         perror("Master - Munmap");
 }
-
 
 int minimum(int n1, int n2){
     if(n1 <= n2)
