@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -pedantic -Wall -std=c99 -pthread -lrt
+CFLAGS = -pedantic -Wall -std=c99 -pthread -lrt -g
 RM = rm -f
 
 SOURCES = $(wildcard *.c)
@@ -22,8 +22,8 @@ clean_test:
 	$(RM) $(CPPANS) *.valout report.tasks
 
 test: clean $(CPPANS) 
-	./pvs.sh $(TOP)
-	valgrind ./master.out $(TF) 2> master.valout | valgrind ./view.out 2> view.valout
+	./pvs.sh
+	valgrind ./master.out $(TF) 2> master.valout | valgrind ./view.out 2> view.valout > /dev/null
 
 %.cppout: %.c
 	cppcheck --quiet --enable=all --force --inconclusive  $^ 2> $@

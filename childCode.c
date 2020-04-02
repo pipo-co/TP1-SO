@@ -45,7 +45,7 @@ int main(int argc, char const *argv[]){
     }
     
     int readAux;
-    char* request;
+    char* request; //Si bien a esta variable se le podria reducir el scope, nos parece que de esta forma queda mas claro el codigo
     while((readAux = read(STDIN_FILENO, input, INPUT_MAX_SIZE)) != 0){ //Leer hasta EOF
         if(readAux  == -1)
             HANDLE_ERROR("Child - Reading File Name");

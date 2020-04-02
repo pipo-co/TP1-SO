@@ -41,6 +41,9 @@ int main(int argc, char const *argv[]){
     } else
         totalTasks = atoi(argv[1]);
 
+    if(totalTasks == 0)
+        return 0;
+
     //Shared Memory and Sempahores Initialization
         int shm = shm_open(SHM_NAME, O_RDWR, S_IRWXU);
         if(shm == -1)

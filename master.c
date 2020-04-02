@@ -28,7 +28,7 @@
 #define FILE_NAME "output.txt"
 #define SHM_NAME "/shm"
 #define COMS_NAME "/coms_sem"
-#define OUTPUT_MAX_SIZE INPUT_MAX_SIZE + 50
+#define OUTPUT_MAX_SIZE (INPUT_MAX_SIZE + 50)
 #define MAX_INIT_ARGS 50
 #define INPUT_MAX_SIZE 200
 
@@ -45,14 +45,16 @@ typedef struct childStruct{
 //Returns total tasks delivered to children on init.
 size_t prepareChildren(childStruct childArray[], char const *taskArray[], size_t childCount, size_t initChildTaskCount, size_t* taskCounter);
 void outputInfo(char output[], FILE* file, size_t* mapCounter, char* map, sem_t* coms_sem, size_t tasksRecivedCounter);
-void freeResources(sem_t* coms_sem, char* map, size_t totalTasks, FILE * outputFile);
-void prepareChildOutputFdSet(childStruct * childArray,  size_t childCount, fd_set * rfds);
-size_t assignTasks(int fd, char const *taskArray[], size_t tasksToAssign);
 void * initializeSHMSpace(const char * name, int oFlags, mode_t mode, int prot, size_t size);
+void prepareChildOutputFdSet(childStruct * childArray,  size_t childCount, fd_set * rfds);
+void freeResources(sem_t* coms_sem, char* map, size_t totalTasks, FILE * outputFile);
+size_t assignTasks(int fd, char const *taskArray[], size_t tasksToAssign);
 void colectChildren(childStruct childArray[], size_t childCount);
 int minimum(int n1, int n2);
 
 int main(int argc, char const *argv[]){
+    if(argc == 1)
+        return 0;
 
     const char ** taskArray = argv + 1;
     childStruct childArray[MAX_NUM_CHILD];
@@ -100,7 +102,8 @@ int main(int argc, char const *argv[]){
         
     //Main Logic of Master
     fd_set fdSet;
-    int fdAvailable, readAux;
+    int fdAvailable; //Si bien a esta variable se le podria reducir el scope, nos parece que de esta forma queda mas claro el codigo
+    int readAux;
     char output[OUTPUT_MAX_SIZE];
     size_t tasksRecivedCount, taskAsigned;
     

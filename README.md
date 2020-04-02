@@ -45,4 +45,11 @@ Los resultados estaran:
 - Cppcheck:     master.cppout childCode.cppout view.cppout
 - Valgrind:     master.valout view.valout
   
-Estos podran ser eliminados con el comando clean_test
+Estos podran ser eliminados con el comando 
+```
+make clean_test
+```
+
+## Aclaraciones
+
+Cppcheck indica que hay dos variables que su scope puede ser reducido. Consideramos que por claridad del codigo es preferible dejarlas de esta forma.
