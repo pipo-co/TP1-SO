@@ -21,7 +21,7 @@
 #define MAX_NUM_CHILD 5
 #define PIPE_WRITE 1
 #define PIPE_READ 0
-#define MIN_CHILD_COUNT 2
+#define MIN_CHILD_COUNT 1
 #define MIN_INIT_CHILD_TASK_COUNT 1
 #define CHILD_TASK_PER_CYCLE 1
 #define CHILD_PATH "childCode.out"
